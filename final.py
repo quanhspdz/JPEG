@@ -189,7 +189,7 @@ def Compression_Ratio(filepath):
     return CR
 
 
-def rocess(img):
+def process(img):
     # Ma trận lượng tử hóa
     qtable = np.array([[16, 11, 10, 16, 24, 40, 51, 61],
                        [12, 12, 14, 19, 26, 58, 60, 55],
