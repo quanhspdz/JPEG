@@ -1,13 +1,12 @@
+import collections
+import time
 from filecmp import cmp
 
 import cv2
-import collections
-import os
-import numpy as np
-import time
-from math import log
+import pandas as pd
 from matplotlib import pyplot as plt
-from skimage.metrics import structural_similarity as ssim
+
+from calculate import *
 
 
 ## thuật toán huffman
@@ -166,28 +165,6 @@ def zig_zag_reverse(input_matrix):
             else:
                 output_matrix[i - j, j] = input_matrix[0][index]
     return output_matrix
-
-
-def MSE(img1, img2):
-    return ((img1.astype(np.float64) - img2.astype(np.float64)) ** 2).mean(axis=None)
-
-
-def PSNR(mse):
-    return 10 * log(((255 * 255) / mse), 10)
-
-
-def SSIM(img1, img2):
-    return ssim(img1.astype(np.float64), img2.astype(np.float64), data_range=img2.max() - img2.min())
-
-
-def Compression_Ratio(filepath):
-    Ori_img = os.stat(filepath).st_size
-    Ori_img = Ori_img / 1024
-    Com_img = os.path.getsize('decompressed.jpg')
-    Com_img = Com_img / 1024
-    CR = Ori_img / float(Com_img)
-    return CR
-
 
 def process(img):
     # Ma trận lượng tử hóa
@@ -354,45 +331,114 @@ def process(img):
 
     return new_img
 def main():
-    img_path = 'image_1.png'
-    old_image = cv2.imread(img_path)
-    original_image = cv2.cvtColor(old_image, cv2.COLOR_BGR2RGB)
-    image = cv2.cvtColor(old_image, cv2.COLOR_BGR2YCrCb)
+    directory = './data_test/'
 
-    # BGR to YCrBr
-    ycbcr_image = cv2.cvtColor(old_image, cv2.COLOR_BGR2YCrCb)
+    image_files = [f for f in os.listdir(directory) if f.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp'))]
 
-    # Tách các kênh màu
-    y_channel, cr_channel, cb_channel = cv2.split(ycbcr_image)
+    sorted_image_files = []
+    mse_values = []
+    psnr_values = []
+    ssim_values = []
+    compression_ratio_values = []
+    bpp_values = []
+    sorted_psnr_values = []
+    sorted_bpp_values = []
+    sorted_ssim_values = []
+    sorted_comratio_values = []
+    image_names = []
+    time_compress = []
+    sorted_time_compress = []
 
-    result = np.zeros_like(image)
-    result[:, :, 0] = process(y_channel)
-    result[:, :, 1] = process(cr_channel)
-    result[:, :, 2] = process(cb_channel)
+    for image_file in image_files:
+        start = time.time()
+        # Construct the full file path
+        filepath = os.path.join(directory, image_file)
 
-    new_img = cv2.cvtColor(result, cv2.COLOR_YCrCb2RGB)
-    plt.subplot(121), plt.imshow(original_image, cmap='gray'), plt.title('Original Image')
-    plt.xticks([]), plt.yticks([])
-    plt.subplot(122), plt.imshow(new_img, cmap='gray'), plt.title('Image after decompress')
-    plt.xticks([]), plt.yticks([])
+        old_image = cv2.imread(filepath)
+
+        # Pad the image to make it divisible by 8 with white padding
+        oHeight, oWidth = old_image.shape[:2]
+        pad_height = (8 - oHeight % 8) % 8
+        pad_width = (8 - oWidth % 8) % 8
+
+        # Use cv2.copyMakeBorder with the calculated padding
+        old_image = cv2.copyMakeBorder(old_image, 0, pad_height, 0, pad_width, cv2.BORDER_CONSTANT, value=(255, 255, 255))
+
+        original_image = cv2.cvtColor(old_image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(old_image, cv2.COLOR_BGR2YCrCb)
+
+        # BGR to YCrBr
+        ycbcr_image = cv2.cvtColor(old_image, cv2.COLOR_BGR2YCrCb)
+
+        # Tách các kênh màu
+        y_channel, cr_channel, cb_channel = cv2.split(ycbcr_image)
+
+        result = np.zeros_like(image)
+        result[:, :, 0] = process(y_channel)
+        result[:, :, 1] = process(cr_channel)
+        result[:, :, 2] = process(cb_channel)
+
+        new_img = cv2.cvtColor(result, cv2.COLOR_YCrCb2RGB)
+        stop = time.time()
+
+        plt.subplot(121), plt.imshow(original_image, cmap='gray'), plt.title('Original Image')
+        plt.xticks([]), plt.yticks([])
+        plt.subplot(122), plt.imshow(new_img, cmap='gray'), plt.title('Image after decompress')
+        plt.xticks([]), plt.yticks([])
+        plt.show()
+        cv2.imwrite("decompress.jpg", cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR))
+
+        mse = MSE(image, new_img)
+        psnr = PSNR(mse)
+        ssim = SSIM(image, new_img)
+        compression_ratio = Compression_Ratio(filepath)
+        bpp = calculate_bpp(image, compression_ratio)
+        image_files = [os.path.basename(filepath) for filepath in image_files]
+
+        mse_values.append(mse)
+        psnr_values.append(psnr)
+        ssim_values.append(ssim)
+        time_compress.append(stop - start)
+        compression_ratio_values.append(compression_ratio)
+        bpp_values.append(bpp)
+
+        sorted_indices = np.argsort(bpp_values)
+        sorted_bpp_values = np.array(bpp_values)[sorted_indices]
+        sorted_psnr_values = np.array(psnr_values)[sorted_indices]
+        sorted_ssim_values = np.array(ssim_values)[sorted_indices]
+        sorted_comratio_values = np.array(compression_ratio_values)[sorted_indices]
+        sorted_image_files = np.array(image_files)[sorted_indices]
+        sorted_time_compress = np.array(time_compress)[sorted_indices]
+
+        print(filepath)
+        print('Time Compress: ', stop - start)
+        print('Compression Ratio: ', compression_ratio)
+        print("loading...")
+
+    data = {
+        'Image': sorted_image_files,
+        'BPP': sorted_bpp_values,
+        'PSNR': sorted_psnr_values,
+        'SSIM': sorted_ssim_values,
+        'Compression Ratio': sorted_comratio_values,
+        'Time Compress': sorted_time_compress,
+    }
+
+    pd.set_option('display.max_columns', None)
+    df = pd.DataFrame(data)
+    print(df)
+
+    sum = np.sum(sorted_time_compress)
+    print("Sum of time", sum)
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(sorted_bpp_values, sorted_psnr_values, linestyle='-', marker='o', color='green', label='Line of Best Fit')
+    plt.title('PSNR vs Bits per Pixel (BPP) for Image Reconstruction')
+    plt.xlabel('Bits per Pixel (BPP)')
+    plt.ylabel('PSNR')
+    plt.grid(True)
+    plt.legend()
     plt.show()
-    cv2.imwrite("decompress.jpg", cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR))
-
-    # Tính MSE
-    # mse = MSE(img, new_img)
-    # print("MSE = ", mse)
-    #
-    # # Tính PSNR
-    # print("PSNR = ", PSNR(mse))
-    #
-    # # Tính SSIM
-    # print("SSIM = ", SSIM(img, new_img))
-    #
-    # # Compression Ratio
-    # print("Compression Ratio = ", Compression_Ratio(filepath))
-    #
-    # # Thời gian nén
-    # print("Time Compress: ", stop - start)
 
 
 if __name__ == "__main__":
