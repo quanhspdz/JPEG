@@ -241,7 +241,7 @@ for image_file in image_files:
     reconstructed_image_ycbcr = cv2.merge([img, cr_channel, cb_channel])
 
     # Chuyển đổi ảnh YCbCr lại thành ảnh màu
-    new_img = cv2.cvtColor(reconstructed_image_ycbcr, cv2.COLOR_YCrCb2RGB)
+    # new_img = cv2.cvtColor(reconstructed_image_ycbcr, cv2.COLOR_YCrCb2RGB)
 
     # Hiển thị ảnh gốc và ảnh giải nén
     plt.subplot(121), plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB)), plt.axis('off'), plt.title('Original Image')

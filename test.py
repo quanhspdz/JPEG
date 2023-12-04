@@ -10,7 +10,7 @@ from calculate import *
 
 
 
-directory = './data/'
+directory = './data_test/'
 sorted_image_files = []
 mse_values = []
 psnr_values = []
@@ -40,21 +40,34 @@ for image_file in image_files:
     start = time.time()
     result = np.zeros_like(image)
     for i in range(3):
-        result[:,:,i] = compress_channel(image[:,:,i])
-    stop = time.time()  
-    
+        result[:,:,i] = compress_channel(image[:,:,i], i)
+    #result[:, :, 2] = compress_channel(image[:, :, 2], 2)
+    # Tách các kênh màu
+    # y_channel, cr_channel, cb_channel = cv2.split(image)
+    # y_des = compress_channel(y_channel, 0)
+    # cr_des = compress_channel(cr_channel, 1)
+    # cb_des = compress_channel(cb_channel, 2)
+    #
+    # result = cv2.merge([y_des, cr_des, cb_des])
+    stop = time.time()
+
+    # cv2.imwrite('y_channel.jpg', y_des)
+    # cv2.imwrite('cr_channel.jpg', cr_des)
+    # cv2.imwrite('cb_channel.jpg', cb_des)
+    #
     
     # print(img)
     # Chuyển đổi ảnh YCbCr lại thành ảnh màu
     # new_img = cv2.cvtColor(img, cv2.COLOR_YCrCb2RGB)
-    new_img = cv2.cvtColor(result,cv2.COLOR_YCrCb2RGB)
+    # new_img = cv2.cvtColor(result,cv2.COLOR_YCrCb2RGB)
+    new_img = result
     # Hiển thị ảnh gốc và ảnh giải nén
     plt.subplot(121), plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB)), plt.axis('off'), plt.title('Original Image')
     # plt.subplot(122), plt.imshow(new_img), plt.axis('off'), plt.title('Reconstructed Image')
-    plt.subplot(122), plt.imshow(cv2.cvtColor(new_img, cv2.COLOR_BGR2RGB)), plt.axis('off'), plt.title('Recovered Image')
+    plt.subplot(122), plt.imshow(result), plt.axis('off'), plt.title('Recovered Image')
     plt.show()
 
-    new_img = cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
+#    new_img = cv2.cvtColor(new_img, cv2.COLOR_RGB2BGR)
     # Lưu ảnh sau khi giải nén
     cv2.imwrite('decompressed.jpg', new_img)
     

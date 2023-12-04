@@ -15,10 +15,39 @@ qtable = np.array([[16, 11, 10, 16, 24, 40, 51, 61],
                     [49, 64, 78, 87, 103, 121, 120, 101],
                     [72, 92, 95, 98, 112, 100, 103, 99]])
 
-def compress_channel(img):
-    
+qchrom = np.array([[17, 18, 24, 47, 99, 99, 99, 99],
+                   [18, 21, 26, 66, 99, 99, 99, 99],
+                   [24, 26, 56, 99, 99, 99, 99, 99],
+                   [47, 66, 99, 99, 99, 99, 99, 99],
+                   [99, 99, 99, 99, 99, 99, 99, 99],
+                   [99, 99, 99, 99, 99, 99, 99, 99],
+                   [99, 99, 99, 99, 99, 99, 99, 99],
+                   [99, 99, 99, 99, 99, 99, 99, 99]])
+
+def quantizeY(pic):
+    p = np.zeros_like(pic, dtype=float)
+    for i in range(8):
+        for j in range(8):
+            p[i][j] = pic[i][j] / qtable[i][j]
+    return np.round(p).astype(int)
+
+
+def iQuantizeY(pic):
+    p = np.zeros_like(pic, dtype=float)
+    for i in range(8):
+        for j in range(8):
+            p[i][j] = pic[i][j] * qtable[i][j]
+    return np.round(p).astype(int)
+
+
+def compress_channel(img, channel):
+
     # Kích thước ảnh
+    global qtable
     iHeight, iWidth = img.shape[:2]
+
+    # if channel != 0:
+    #     qtable = qchrom
 
     zigZag = []
 
@@ -33,11 +62,11 @@ def compress_channel(img):
             dct = dct_block(block_t)
 
             # Lượng tử hóa các hệ số DCT
-            block_q = np.floor(np.divide(dct, qtable) + 0.5)
+            dct = quantizeY(dct)
 
             # Zig Zag
-            zigZag.append(zig_zag(block_q, 8))
-            
+            zigZag.append(zig_zag(dct, 8))
+
     dc = []
     dc.append(zigZag[0][0])  # giữ nguyên giá trị đầu tiên
     for i in range(1, len(zigZag)):
@@ -95,7 +124,7 @@ def compress_channel(img):
 
     # Mã hóa danh sách các ký hiệu nguồn.
     sRLC = encode(rlc, symbolsRLC)
-    
+
     # return data
     dDPCM = decode(sDPMC, rootDPCM)
     decodeDPMC = []
@@ -139,11 +168,10 @@ def compress_channel(img):
             temp.append((inverse_RLC[j + i * 63]))
         temp2.append(temp)
         # inverse Zig-Zag và nghịch đảo Lượng tử hóa các hệ số DCT
-        inverse_blockq = np.multiply(np.reshape(
-            zig_zag_reverse(temp2), (8, 8)), qtable)
+        inverse_blockq = zig_zag_reverse(temp)
 
         # inverse DCT
-        inverse_dct = idct_block(inverse_blockq)
+        inverse_dct = idct_block(iQuantizeY(inverse_blockq))
 
         # Update new_img
         new_img[height:height + 8, width:width + 8] = inverse_dct
